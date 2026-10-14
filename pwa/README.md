@@ -19,7 +19,7 @@ The repository includes a GitHub Actions workflow that publishes only the site e
 3. In the PWA, paste that temporary Test URL, enter the exact WhatsApp group title, select the ZIP, then choose **Unggah dan periksa**.
 4. Review the parsed count and sample rows against the source export.
 
-If the browser reports a network/CORS error, verify that the test listener is active and the URL is exact. Keep the Test URL private. The parser preview contains message excerpts. Stop the test listener when done.
+If the browser reports a network/CORS error, verify that the test listener is active and the URL is exact. Keep the Test URL private. The parser preview contains message excerpts. Stop the test listener when done. The updated parser preview can preserve timestamped WhatsApp system/header lines separately from chat messages, including their source line and raw timestamp; those event lines do not count as chat messages.
 
 ## Scope and production boundary
 
