@@ -82,14 +82,18 @@
         return;
       }
       const samples = Array.isArray(data.preview) ? data.preview : [];
-      const warning = data.possible_encoding_issue || data.leading_unparsed_nonblank_lines > 0;
+      const systemEvents = Array.isArray(data.system_events) ? data.system_events : [];
+      const unparsedCount = Number(data.leading_unparsed_nonblank_lines) || 0;
+      const warning = Boolean(data.possible_encoding_issue) || unparsedCount > 0;
       resultEl.innerHTML = '<h2 class="ok">Preview diterima</h2>' +
         '<p>Ini hasil baca sementara; belum ada data yang disimpan.</p>' +
         '<div class="summary"><div class="stat"><strong>' + escapeHtml(data.message_count_parsed) + '</strong>pesan terbaca</div>' +
-        '<div class="stat"><strong>' + escapeHtml(data.leading_unparsed_nonblank_lines) + '</strong>baris awal belum dikenali</div>' +
+        '<div class="stat"><strong>' + escapeHtml(data.system_event_count ?? systemEvents.length) + '</strong>event sistem tercatat</div>' +
+        '<div class="stat"><strong>' + escapeHtml(unparsedCount) + '</strong>baris awal belum dikenali</div>' +
         '<div class="stat"><strong>' + (data.possible_encoding_issue ? 'Periksa' : 'OK') + '</strong>encoding teks</div></div>' +
         '<p><b>Grup:</b> ' + escapeHtml(data.source_group_name_as_supplied || 'tidak tercantum') + '<br><b>File chat:</b> ' + escapeHtml(data.transcript_filename) + '</p>' +
-        (warning ? '<p class="error">Ada tanda format atau encoding yang perlu dicocokkan dengan file asli.</p>' : '') +
+        (warning ? '<p class="error">Ada baris awal yang belum dikenali atau tanda encoding yang perlu dicocokkan dengan file asli.</p>' : '') +
+        (systemEvents.length ? '<details><summary>Event sistem/metadata (' + escapeHtml(systemEvents.length) + ')</summary>' + systemEvents.map(e => '<article class="message"><div class="meta">Baris ' + escapeHtml(e.source_locator) + ' · ' + escapeHtml(e.source_timestamp_raw) + '</div><div>' + escapeHtml(e.event_text_as_written) + '</div></article>').join('') + '</details>' : '') +
         '<h2>Contoh pesan</h2>' +
         (samples.length ? samples.map(m => '<article class="message"><div class="meta">Baris ' + escapeHtml(m.source_locator) + ' · ' + escapeHtml(m.source_timestamp_raw) + ' · ' + escapeHtml(m.sender_as_written) + '</div><div>' + escapeHtml(m.message_text) + '</div></article>').join('') : '<p>Parser belum menemukan contoh pesan.</p>');
       if (Array.isArray(data.other_archive_files) && data.other_archive_files.length) {
