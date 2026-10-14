@@ -1,0 +1,9 @@
+# Secrets and private WhatsApp exports
+.env
+.env.*
+!.env.example
+*.zip
+*.crypt*
+*WhatsApp Chat*
+*chat-export*
+secrets/
