@@ -22,7 +22,7 @@
     input:focus{outline:3px solid #126b4b2c;border-color:var(--green)}
     input[type=file]{width:100%;border:1px dashed #9eb4a6;border-radius:13px;padding:18px;background:#f9fbf9;font:inherit}
     .hint{font-size:.83rem;color:var(--muted);margin:6px 0 0}
-    button{border:0;border-radius:12px;padding:13px 19px;background:var(--green);color:white;font:700 1rem inherit;cursor:pointer;margin-top:22px;min-height:48px}
+    button{border:0;border-radius:12px;padding:13px 19px;background:var(--green);color:white;font:700 1rem system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;margin-top:22px;min-height:48px}
     button:hover{background:var(--green-dark)}button:disabled{opacity:.55;cursor:wait}
     .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.small{font-size:.83rem;color:var(--muted)}
     .result{margin-top:24px}.result[hidden]{display:none}.result h2{font-size:1.25rem;margin:0 0 8px}
@@ -103,13 +103,14 @@
       statusEl.textContent = 'Mengirim ZIP ke n8n…';
       button.disabled = true;
       try {
-        const url = new URL(form.webhookUrl.value.trim());
+        const url = new URL(document.querySelector('#webhookUrl').value.trim());
         if (url.protocol !== 'https:') throw new Error('Gunakan Test URL HTTPS dari n8n.');
         const file = form.zipFile.files[0];
         if (!file || !file.name.toLowerCase().endsWith('.zip')) throw new Error('Pilih file .zip.');
+        if (file.size > 16 * 1024 * 1024) throw new Error('Ukuran ZIP lebih dari 16 MB. Batas webhook n8n saat ini 16 MB; ekspor besar perlu jalur backend/storage.');
         const body = new FormData();
         body.append('data', file, file.name);
-        body.append('group_name', form.groupName.value.trim());
+        body.append('group_name', document.querySelector('#groupName').value.trim());
         const response = await fetch(url.toString(), {method:'POST', body});
         let payload;
         try { payload = await response.json(); } catch { throw new Error('Respons n8n bukan JSON. Pastikan workflow sedang Listen for Test Event dan Test URL-nya benar.'); }
