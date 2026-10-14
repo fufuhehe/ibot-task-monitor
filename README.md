@@ -33,4 +33,4 @@ No n8n connector is configured for the development assistant. Workflows are main
 
 ## Try the upload preview
 
-After enabling GitHub Pages for the `main` branch root, open the repository Pages URL. The root page redirects to `/pwa/`. In n8n, open **Receive ZIP** and click **Listen for Test Event**; then use the PWA to select a ZIP, enter the exact group name, and paste the Test URL. The preview does not write to Supabase. See [PWA setup](pwa/README.md).
+Enable GitHub Pages with **Settings → Pages → Source → GitHub Actions**, then merge the PWA PR. The included workflow publishes only the root redirect and `pwa/` app; after deployment, open https://fufuhehe.github.io/ibot-task-monitor/. In n8n, open **Receive ZIP** and click **Listen for Test Event**; then use the PWA to select a ZIP, enter the exact group name, and paste the Test URL. The preview does not write to Supabase. See [PWA setup](pwa/README.md).
