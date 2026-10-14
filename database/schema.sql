@@ -1,8 +1,6 @@
 -- TaskMonitor v1 logical storage schema (PostgreSQL 15+)
 -- Apply to a dedicated database/schema. Do not store WhatsApp credentials here.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 CREATE TYPE import_state AS ENUM ('uploaded', 'processing', 'review_required', 'completed', 'failed');
 CREATE TYPE group_scope AS ENUM ('main', 'activity', 'unclassified');
 CREATE TYPE task_review_state AS ENUM ('candidate', 'confirmed', 'needs_context', 'rejected');
@@ -67,6 +65,7 @@ CREATE TABLE imports (
       OR state <> 'processing')
 );
 CREATE INDEX imports_state_uploaded_idx ON imports (state, uploaded_at);
+CREATE INDEX imports_source_group_idx ON imports (source_group_id);
 
 -- One row per parsed line/message in one uploaded export. This is the immutable evidence ledger.
 CREATE TABLE message_occurrences (
@@ -94,6 +93,8 @@ CREATE TABLE message_occurrences (
 CREATE INDEX message_occurrences_group_time_idx ON message_occurrences (source_group_id, sent_at);
 CREATE INDEX message_occurrences_fingerprint_idx ON message_occurrences (source_group_id, normalized_fingerprint) WHERE normalized_fingerprint IS NOT NULL;
 CREATE INDEX message_occurrences_import_idx ON message_occurrences (import_id);
+CREATE INDEX message_occurrences_sender_identity_idx ON message_occurrences (sender_identity_id) WHERE sender_identity_id IS NOT NULL;
+CREATE INDEX message_occurrences_resolved_message_idx ON message_occurrences (resolved_message_id) WHERE resolved_message_id IS NOT NULL;
 
 -- Canonical messages are created only when identity is certain (WhatsApp ID), or after a human resolves
 -- a fingerprint collision. Cross-group messages are never auto-merged.
@@ -106,6 +107,7 @@ CREATE TABLE messages (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (source_group_id, whatsapp_message_id)
 );
+CREATE INDEX messages_source_group_idx ON messages (source_group_id);
 ALTER TABLE message_occurrences ADD CONSTRAINT occurrence_resolved_message_fk
   FOREIGN KEY (resolved_message_id) REFERENCES messages(id) ON DELETE RESTRICT;
 
@@ -124,6 +126,8 @@ CREATE TABLE duplicate_reviews (
 );
 CREATE UNIQUE INDEX duplicate_reviews_pair_uq ON duplicate_reviews
   (LEAST(left_occurrence_id, right_occurrence_id), GREATEST(left_occurrence_id, right_occurrence_id));
+CREATE INDEX duplicate_reviews_left_occurrence_idx ON duplicate_reviews (left_occurrence_id);
+CREATE INDEX duplicate_reviews_right_occurrence_idx ON duplicate_reviews (right_occurrence_id);
 
 CREATE TABLE tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,6 +168,8 @@ CREATE TABLE task_people (
       OR (source_basis = 'user_confirmation' AND confirmed_by IS NOT NULL AND confirmed_at IS NOT NULL))
 );
 CREATE INDEX task_people_task_idx ON task_people (task_id, task_role);
+CREATE INDEX task_people_person_idx ON task_people (person_id) WHERE person_id IS NOT NULL;
+CREATE INDEX task_people_evidence_idx ON task_people (evidence_occurrence_id) WHERE evidence_occurrence_id IS NOT NULL;
 
 CREATE TABLE task_evidence (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -202,6 +208,8 @@ CREATE TABLE task_merge_reviews (
 );
 CREATE UNIQUE INDEX task_merge_pair_uq ON task_merge_reviews
   (LEAST(left_task_id, right_task_id), GREATEST(left_task_id, right_task_id));
+CREATE INDEX task_merge_left_task_idx ON task_merge_reviews (left_task_id);
+CREATE INDEX task_merge_right_task_idx ON task_merge_reviews (right_task_id);
 
 -- Retain each model's candidate output and evidence pointers for audit and reprocessing.
 CREATE TABLE extraction_runs (
@@ -215,23 +223,37 @@ CREATE TABLE extraction_runs (
   candidate_count integer NOT NULL DEFAULT 0 CHECK (candidate_count >= 0),
   error_summary text
 );
+CREATE INDEX extraction_runs_import_idx ON extraction_runs (import_id, started_at DESC);
 
 -- Supabase: these public-schema tables are server-only in v1. RLS has no client policies;
 -- authenticated/anon clients therefore see no rows. The trusted backend/n8n uses server-side
 -- credentials and must never expose them to PWA/browser code.
 ALTER TABLE source_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE source_groups FORCE ROW LEVEL SECURITY;
 ALTER TABLE people ENABLE ROW LEVEL SECURITY;
+ALTER TABLE people FORCE ROW LEVEL SECURITY;
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activities FORCE ROW LEVEL SECURITY;
 ALTER TABLE imports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE imports FORCE ROW LEVEL SECURITY;
 ALTER TABLE message_occurrences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE message_occurrences FORCE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages FORCE ROW LEVEL SECURITY;
 ALTER TABLE duplicate_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE duplicate_reviews FORCE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks FORCE ROW LEVEL SECURITY;
 ALTER TABLE task_people ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_people FORCE ROW LEVEL SECURITY;
 ALTER TABLE task_evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_evidence FORCE ROW LEVEL SECURITY;
 ALTER TABLE task_status_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_status_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE task_merge_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_merge_reviews FORCE ROW LEVEL SECURITY;
 ALTER TABLE extraction_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE extraction_runs FORCE ROW LEVEL SECURITY;
 
 -- Create the private archive bucket in Supabase Storage separately if it does not exist:
 -- bucket id: taskmonitor-exports, public=false, per-file and allowed-MIME limits configured
