@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10261f">
+  <meta name="description" content="Unggah ZIP ekspor WhatsApp dan lihat pratinjau parser TaskMonitor.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <title>TaskMonitor · Impor chat</title>
+  <style>
+    :root{color-scheme:light;--ink:#17251f;--muted:#60716a;--line:#dce6df;--paper:#f5f8f5;--green:#126b4b;--green-dark:#0d5139;--mint:#e3f2e9;--amber:#fff4d8;--red:#a23b32}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    .shell{max-width:850px;margin:0 auto;padding:28px 18px 54px}.brand{display:flex;align-items:center;gap:11px;margin-bottom:36px;font-weight:750;letter-spacing:-.02em}.brand img{width:38px;height:38px}
+    .eyebrow{color:var(--green);font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+    h1{font-size:clamp(2rem,6vw,3.2rem);line-height:1.06;letter-spacing:-.055em;margin:8px 0 12px}
+    .intro{max-width:620px;color:var(--muted);margin:0 0 26px}
+    .notice{border:1px solid #e7d8a8;background:var(--amber);border-radius:14px;padding:14px 16px;margin:20px 0 24px;font-size:.9rem}
+    .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:clamp(18px,4vw,30px);box-shadow:0 12px 36px #10261f0a}
+    label{display:block;font-weight:700;margin:18px 0 7px}label:first-child{margin-top:0}
+    input[type=text],input[type=url]{width:100%;border:1px solid #bdcbc2;border-radius:11px;padding:13px 14px;font:inherit;color:var(--ink);background:#fff}
+    input:focus{outline:3px solid #126b4b2c;border-color:var(--green)}
+    input[type=file]{width:100%;border:1px dashed #9eb4a6;border-radius:13px;padding:18px;background:#f9fbf9;font:inherit}
+    .hint{font-size:.83rem;color:var(--muted);margin:6px 0 0}
+    button{border:0;border-radius:12px;padding:13px 19px;background:var(--green);color:white;font:700 1rem system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;margin-top:22px;min-height:48px}
+    button:hover{background:var(--green-dark)}button:disabled{opacity:.55;cursor:wait}
+    .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.small{font-size:.83rem;color:var(--muted)}
+    .result{margin-top:24px}.result[hidden]{display:none}.result h2{font-size:1.25rem;margin:0 0 8px}
+    .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:14px 0}
+    .stat{border:1px solid var(--line);background:#f9fbf9;border-radius:12px;padding:12px}.stat strong{display:block;font-size:1.25rem}
+    .message{border-top:1px solid var(--line);padding:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}.message .meta{font-size:.78rem;color:var(--muted);margin-bottom:4px}
+    .error{color:var(--red);font-weight:650}.ok{color:var(--green-dark);font-weight:650}
+    details{margin-top:14px}summary{cursor:pointer;color:var(--green);font-weight:700}
+    footer{margin:24px 4px;color:var(--muted);font-size:.82rem}
+    @media(max-width:520px){.shell{padding:20px 13px 38px}.brand{margin-bottom:28px}.card{border-radius:16px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand"><img src="./icon.svg" alt=""><span>TaskMonitor</span></div>
+    <div class="eyebrow">Impor harian · tahap uji</div>
+    <h1>Masukkan ekspor grup WhatsApp</h1>
+    <p class="intro">Pilih ZIP dari satu grup, kirim ke workflow n8n, lalu periksa apakah pesan dan sumbernya terbaca dengan benar.</p>
+
+    <div class="notice"><strong>Mode preview.</strong> Workflow yang sekarang hanya mengurai ZIP dan menampilkan contoh. Pesan belum disimpan ke Supabase dan belum menjadi task. Gunakan Test URL saat n8n sedang <em>Listen for Test Event</em>; jangan gunakan Production URL dulu.</div>
+
+    <form class="card" id="uploadForm">
+      <label for="webhookUrl">Test URL n8n</label>
+      <input id="webhookUrl" name="webhookUrl" type="url" inputmode="url" placeholder="Tempel Test URL dari node Receive ZIP" required autocomplete="url">
+      <p class="hint">Di n8n: buka Receive ZIP → Test URL → Listen for Test Event → salin URL.</p>
+
+      <label for="groupName">Nama grup persis seperti di WhatsApp</label>
+      <input id="groupName" name="groupName" type="text" maxlength="200" placeholder="Contoh: nama grup sesuai ekspor" required autocomplete="off">
+
+      <label for="zipFile">File ekspor ZIP</label>
+      <input id="zipFile" name="zipFile" type="file" accept=".zip,application/zip" required>
+      <p class="hint">Gunakan ekspor satu grup. ZIP harus memiliki tepat satu file chat .txt.</p>
+
+      <div class="row">
+        <button id="submitButton" type="submit">Unggah dan periksa</button>
+        <span id="status" class="small" role="status" aria-live="polite"></span>
+      </div>
+
+      <section id="result" class="result" hidden aria-live="polite"></section>
+    </form>
+    <footer>Arsip chat berisi informasi pribadi. URL Test tidak memakai autentikasi, jadi jangan bagikan URL atau hasil preview. PWA ini belum untuk impor produksi.</footer>
+  </main>
+  <script>
+    const form = document.querySelector('#uploadForm');
+    const button = document.querySelector('#submitButton');
+    const statusEl = document.querySelector('#status');
+    const resultEl = document.querySelector('#result');
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    function renderResult(data) {
+      resultEl.hidden = false;
+      if (!data || data.ok !== true) {
+        resultEl.innerHTML = '<h2 class="error">ZIP belum bisa diproses</h2><p>' + escapeHtml(data?.error || 'n8n mengembalikan respons yang tidak dikenali.') + '</p>';
+        return;
+      }
+      const samples = Array.isArray(data.preview) ? data.preview : [];
+      const warning = data.possible_encoding_issue || data.leading_unparsed_nonblank_lines > 0;
+      resultEl.innerHTML = '<h2 class="ok">Preview diterima</h2>' +
+        '<p>Ini hasil baca sementara; belum ada data yang disimpan.</p>' +
+        '<div class="summary"><div class="stat"><strong>' + escapeHtml(data.message_count_parsed) + '</strong>pesan terbaca</div>' +
+        '<div class="stat"><strong>' + escapeHtml(data.leading_unparsed_nonblank_lines) + '</strong>baris awal belum dikenali</div>' +
+        '<div class="stat"><strong>' + (data.possible_encoding_issue ? 'Periksa' : 'OK') + '</strong>encoding teks</div></div>' +
+        '<p><b>Grup:</b> ' + escapeHtml(data.source_group_name_as_supplied || 'tidak tercantum') + '<br><b>File chat:</b> ' + escapeHtml(data.transcript_filename) + '</p>' +
+        (warning ? '<p class="error">Ada tanda format atau encoding yang perlu dicocokkan dengan file asli.</p>' : '') +
+        '<h2>Contoh pesan</h2>' +
+        (samples.length ? samples.map(m => '<article class="message"><div class="meta">Baris ' + escapeHtml(m.source_locator) + ' · ' + escapeHtml(m.source_timestamp_raw) + ' · ' + escapeHtml(m.sender_as_written) + '</div><div>' + escapeHtml(m.message_text) + '</div></article>').join('') : '<p>Parser belum menemukan contoh pesan.</p>');
+      if (Array.isArray(data.other_archive_files) && data.other_archive_files.length) {
+        resultEl.innerHTML += '<details><summary>File lain di ZIP (' + escapeHtml(data.other_archive_file_count) + ')</summary><p>' + data.other_archive_files.map(escapeHtml).join('<br>') + '</p></details>';
+      }
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      resultEl.hidden = true;
+      statusEl.textContent = 'Mengirim ZIP ke n8n…';
+      button.disabled = true;
+      try {
+        const url = new URL(document.querySelector('#webhookUrl').value.trim());
+        if (url.protocol !== 'https:') throw new Error('Gunakan Test URL HTTPS dari n8n.');
+        const file = form.zipFile.files[0];
+        if (!file || !file.name.toLowerCase().endsWith('.zip')) throw new Error('Pilih file .zip.');
+        if (file.size > 16 * 1024 * 1024) throw new Error('Ukuran ZIP lebih dari 16 MB. Batas webhook n8n saat ini 16 MB; ekspor besar perlu jalur backend/storage.');
+        const body = new FormData();
+        body.append('data', file, file.name);
+        body.append('group_name', document.querySelector('#groupName').value.trim());
+        const response = await fetch(url.toString(), {method:'POST', body});
+        let payload;
+        try { payload = await response.json(); } catch { throw new Error('Respons n8n bukan JSON. Pastikan workflow sedang Listen for Test Event dan Test URL-nya benar.'); }
+        if (!response.ok) throw new Error('n8n membalas HTTP ' + response.status + '. Periksa status workflow dan URL test.');
+        renderResult(payload);
+        statusEl.textContent = 'Selesai';
+      } catch (error) {
+        resultEl.hidden = false;
+        resultEl.innerHTML = '<h2 class="error">Upload gagal</h2><p>' + escapeHtml(error.message || 'Tidak dapat menghubungi n8n.') + '</p><p class="hint">Pastikan n8n sedang mendengarkan Test URL. Jika muncul error jaringan/CORS, cek bahwa URL yang ditempel adalah Test URL persis dari node Receive ZIP.</p>';
+        statusEl.textContent = '';
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>

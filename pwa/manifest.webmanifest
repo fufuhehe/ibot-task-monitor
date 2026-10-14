@@ -1,0 +1,19 @@
+{
+  "name": "TaskMonitor · Impor chat",
+  "short_name": "TaskMonitor",
+  "description": "Unggah dan periksa ekspor WhatsApp untuk TaskMonitor.",
+  "lang": "id-ID",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f8f5",
+  "theme_color": "#10261f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
